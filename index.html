@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="description" content="Otech Digital Menu & Order System - Restaurant & Room Service">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/img/icon-192.png">
+  <title>Otech Digital Menu</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+  <div id="offline-banner" class="offline-banner hidden">You are offline — orders will sync when connection returns</div>
+  <div id="app">
+    <!-- Landing / Mode Select -->
+    <div id="landing" class="page active">
+      <div class="hero" id="hero">
+        <img id="landing-logo" class="landing-logo hidden" alt="Logo">
+        <div class="logo" id="landing-brand">Otech</div>
+        <h1 id="landing-title">Digital Menu & Orders</h1>
+        <p class="subtitle" id="landing-tagline">Restaurant Tables • Hotel Room Service</p>
+      </div>
+      <div class="mode-cards">
+        <div class="card" onclick="goGuest()">
+          <div class="icon">📱</div>
+          <h3>Guest Menu</h3>
+          <p>Scan the QR code on your table or room</p>
+        </div>
+        <div class="card" onclick="goKitchen()">
+          <div class="icon">👨‍🍳</div>
+          <h3>Kitchen Display</h3>
+          <p>Live orders & status updates</p>
+        </div>
+        <div class="card" onclick="goAdmin()">
+          <div class="icon">⚙️</div>
+          <h3>Admin Panel</h3>
+          <p>Menu, QR codes, settings, reports</p>
+        </div>
+      </div>
+      <footer class="footer" id="footer-text">Powered by Otech Business Systems</footer>
+    </div>
+
+    <!-- Guest: Enter Code -->
+    <div id="guest-entry" class="page">
+      <header class="topbar">
+        <button class="back" onclick="showPage('landing')">← Back</button>
+        <h2>Table / Room Access</h2>
+      </header>
+      <div class="content">
+        <p class="hint"><strong>Scan the QR code</strong> on your table or in your room to open the menu and place orders.</p>
+        <p class="hint small">The menu and your order status are only available after scanning your table’s QR code.</p>
+        <div class="or">— staff / backup only —</div>
+        <p class="hint small">Enter table or room code if needed:</p>
+        <input type="text" id="location-code" placeholder="T01 or R101" class="input-lg" autofocus>
+        <button class="btn primary" onclick="loadGuestMenu()">Open Menu for this Table</button>
+      </div>
+    </div>
+
+    <!-- Guest Menu: left cart + right menu -->
+    <div id="guest-menu" class="page">
+      <header class="topbar sticky">
+        <button class="back" onclick="guestBack()">←</button>
+        <div>
+          <h2 id="guest-location">Menu</h2>
+          <span id="guest-type" class="badge"></span>
+        </div>
+        <button class="cart-btn" onclick="toggleCartPane()">
+          🛒 <span id="cart-count">0</span>
+        </button>
+      </header>
+      <div class="guest-layout">
+        <aside id="cart-pane" class="cart-pane">
+          <div class="cart-pane-header">
+            <h3>Your Order</h3>
+            <button class="btn small" onclick="toggleCartPane()" id="cart-close-btn">✕</button>
+          </div>
+          <div id="cart-items" class="cart-items"></div>
+          <div class="cart-footer">
+            <div class="total">Total: <strong id="cart-total">0.00</strong> <span id="currency">K</span></div>
+            <input type="text" id="customer-name" placeholder="Your name (optional)" class="input">
+            <textarea id="order-notes" placeholder="Special requests / notes" rows="2" class="input"></textarea>
+            <button class="btn primary full" onclick="placeOrder()">Place Order</button>
+          </div>
+        </aside>
+        <main class="menu-main">
+          <div id="menu-categories" class="tabs"></div>
+          <div id="menu-items" class="menu-list"></div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Order Confirmation + Tracking -->
+    <div id="order-confirm" class="page">
+      <div class="content center">
+        <div class="success-icon" id="track-icon">✓</div>
+        <h2 id="track-title">Order Placed!</h2>
+        <p class="order-num">Order #<span id="confirm-number"></span></p>
+        <p>Total: <strong id="confirm-total"></strong></p>
+        <div id="live-status-badge" class="live-status pending">Pending</div>
+        <div id="order-status-box" class="status-box">
+          <div class="status-steps">
+            <div class="step" id="step-pending">Pending</div>
+            <div class="step" id="step-preparing">Preparing</div>
+            <div class="step" id="step-ready">Ready</div>
+            <div class="step" id="step-delivered">Delivered</div>
+          </div>
+          <p id="track-status-text" class="hint">Waiting for kitchen...</p>
+          <p class="hint small" id="track-auto">Status updates automatically every few seconds</p>
+        </div>
+        <button class="btn primary" onclick="refreshOrderStatus()">Refresh Status</button>
+        <button class="btn outline" onclick="orderMoreSameTable()">Order More (same table)</button>
+      </div>
+    </div>
+
+    <!-- Kitchen Display -->
+    <div id="kitchen" class="page">
+      <header class="topbar">
+        <button class="back" onclick="showPage('landing')">←</button>
+        <h2>Kitchen Display</h2>
+        <button class="btn small" onclick="loadKitchenOrders()">🔄 Refresh</button>
+      </header>
+      <div class="kds-tabs">
+        <button class="kds-tab active" data-status="pending" onclick="filterKDS(this)">New</button>
+        <button class="kds-tab" data-status="preparing" onclick="filterKDS(this)">Preparing</button>
+        <button class="kds-tab" data-status="ready" onclick="filterKDS(this)">Ready</button>
+        <button class="kds-tab" data-status="done" onclick="filterKDS(this)">Done</button>
+        <button class="kds-tab" data-status="all" onclick="filterKDS(this)">All</button>
+        <label class="sound-toggle" title="Play sound on new orders">
+          <input type="checkbox" id="kds-sound" checked> 🔔 Sound
+        </label>
+      </div>
+      <div id="kds-orders" class="kds-grid"></div>
+    </div>
+
+    <!-- Admin Login -->
+    <div id="admin-login" class="page">
+      <header class="topbar">
+        <button class="back" onclick="showPage('landing')">←</button>
+        <h2>Admin Login</h2>
+      </header>
+      <div class="content">
+        <input type="text" id="admin-user" placeholder="Username" class="input" value="admin">
+        <input type="password" id="admin-pass" placeholder="Password" class="input" value="admin123">
+        <button class="btn primary full" onclick="doLogin()">Login</button>
+        <p class="hint small">Default: admin / admin123</p>
+      </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="admin" class="page">
+      <header class="topbar">
+        <button class="back" onclick="showPage('landing')">←</button>
+        <h2>Admin</h2>
+        <button class="btn small danger" onclick="logout()">Logout</button>
+      </header>
+      <div class="admin-nav">
+        <button class="nav-btn active" data-panel="stats" onclick="showAdminPanel(this)">📊 Stats</button>
+        <button class="nav-btn" data-panel="finance" onclick="showAdminPanel(this)">💰 Finance</button>
+        <button class="nav-btn" data-panel="menu" onclick="showAdminPanel(this)">📋 Menu</button>
+        <button class="nav-btn" data-panel="locations" onclick="showAdminPanel(this)">📍 QR / Tables</button>
+        <button class="nav-btn" data-panel="orders" onclick="showAdminPanel(this)">🧾 Orders</button>
+        <button class="nav-btn" data-panel="settings" onclick="showAdminPanel(this)">⚙️ Settings</button>
+      </div>
+      
+      <div id="panel-stats" class="admin-panel active">
+        <div class="stats-grid" id="stats-grid"></div>
+      </div>
+
+      <div id="panel-finance" class="admin-panel">
+        <div class="panel-actions">
+          <button class="btn small primary" onclick="exportFinanceCSV()">Export CSV</button>
+          <button class="btn small" onclick="exportFinancePDF()">Export PDF Report</button>
+        </div>
+        <div id="finance-report"></div>
+      </div>
+      
+      <div id="panel-menu" class="admin-panel">
+        <div class="panel-actions">
+          <button class="btn small" onclick="showAddCategory()">+ Category</button>
+          <button class="btn small primary" onclick="showAddItem()">+ Menu Item</button>
+          <button class="btn small outline" onclick="exportMenuPDF()">Export Menu PDF</button>
+        </div>
+        <div id="admin-menu-list"></div>
+      </div>
+      
+      <div id="panel-locations" class="admin-panel">
+        <div class="panel-actions">
+          <button class="btn small" onclick="showAddLocation('table')">+ Table</button>
+          <button class="btn small" onclick="showAddLocation('room')">+ Room</button>
+        </div>
+        <div id="admin-locations"></div>
+      </div>
+      
+      <div id="panel-orders" class="admin-panel">
+        <div id="admin-orders-list"></div>
+      </div>
+
+      <div id="panel-settings" class="admin-panel">
+        <div class="settings-form" id="settings-form">
+          <h3 class="settings-section">Business Information</h3>
+          <label>Business / Restaurant Name</label>
+          <input class="input" id="set-business_name" placeholder="Business name">
+          <label>Tagline</label>
+          <input class="input" id="set-tagline" placeholder="Short tagline">
+          <label>Address</label>
+          
+          <label>Public website URL (for online QR codes)</label>
+          <input class="input" id="set-public_base_url" placeholder="https://your-app.onrender.com">
+          <p class="hint small">When hosted online, paste the HTTPS link here so printed QR codes work for guests anywhere (not only Wi‑Fi).</p>
+<input class="input" id="set-address" placeholder="Full address">
+          <label>Phone</label>
+          <input class="input" id="set-phone" placeholder="+675 ...">
+          <label>Email</label>
+          <input class="input" id="set-email" placeholder="info@...">
+
+          <h3 class="settings-section">Logo</h3>
+          <label>Logo URL (or leave blank)</label>
+          <input class="input" id="set-logo_url" placeholder="https://... or upload below">
+          <label>Or upload logo image</label>
+          <input type="file" id="set-logo_file" accept="image/*" class="input" onchange="handleLogoUpload(event)">
+          <div id="logo-preview" class="logo-preview"></div>
+
+          <h3 class="settings-section">Currency & Tax</h3>
+          <label>Currency Code</label>
+          <input class="input" id="set-currency" placeholder="PGK">
+          <label>Currency Symbol</label>
+          <input class="input" id="set-currency_symbol" placeholder="K">
+          <label>Tax Rate (%)</label>
+          <input class="input" id="set-tax_rate" type="number" step="0.01" placeholder="0">
+          <label>Tax Label</label>
+          <input class="input" id="set-tax_label" placeholder="GST">
+
+          <h3 class="settings-section">Theme & Appearance</h3>
+          <label>Primary Colour</label>
+          <input type="color" id="set-theme_primary" class="input color-input" value="#0f766e">
+          <label>Accent Colour</label>
+          <input type="color" id="set-theme_accent" class="input color-input" value="#f59e0b">
+          <label>Background Colour</label>
+          <input type="color" id="set-theme_bg" class="input color-input" value="#f8fafc">
+          <label>Theme Mode</label>
+          <select class="input" id="set-theme_mode">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+
+          <h3 class="settings-section">Messages</h3>
+          <label>Welcome Message</label>
+          <textarea class="input" id="set-welcome_message" rows="2"></textarea>
+          <label>Service Note (shown on menu)</label>
+          <input class="input" id="set-service_note" placeholder="Room service hours etc.">
+          <label>Order Success Message</label>
+          <input class="input" id="set-order_success_msg">
+
+          <button class="btn primary full" style="margin-top:16px" onclick="saveSettings()">Save Settings</button>
+          <p class="hint small" id="settings-status"></p>
+
+          <h3 class="settings-section" style="margin-top:32px">User Management</h3>
+          <p class="hint small">Create staff accounts with roles: Admin, Manager, Kitchen, Staff.</p>
+          <button class="btn small primary" onclick="showAddUser()">+ Add User</button>
+          <div id="users-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Title</h3>
+          <button onclick="closeModal()">✕</button>
+        </div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
