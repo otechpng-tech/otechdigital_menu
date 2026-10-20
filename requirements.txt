@@ -1,0 +1,2 @@
+# Otech Digital Menu — pure Python standard library
+# No pip packages required.

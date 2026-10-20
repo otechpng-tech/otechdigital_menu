@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: otech-digital-menu
+    runtime: python
+    plan: free
+    buildCommand: "echo No build steps"
+    startCommand: "python server.py"
+    healthCheckPath: /api/ping
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: PUBLIC_BASE_URL
+        sync: false
